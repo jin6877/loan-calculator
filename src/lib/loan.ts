@@ -87,6 +87,136 @@ export function buildSchedule(
   }
 }
 
+/* ---------- 중도상환 ---------- */
+
+export type PrepayMode = 'shortenTerm' | 'reducePayment'
+
+export const PREPAY_MODE_LABELS: Record<PrepayMode, string> = {
+  shortenTerm: '기간 단축',
+  reducePayment: '월 납입금 감소',
+}
+
+export const PREPAY_MODE_DESC: Record<PrepayMode, string> = {
+  shortenTerm: '월 납입금은 유지하고 상환 기간을 줄입니다. 이자 절감 효과가 더 큽니다.',
+  reducePayment: '기간은 유지하고 이후 월 납입금을 줄입니다. 매월 부담이 가벼워집니다.',
+}
+
+export interface PrepayOption {
+  month: number // 해당 회차 납입 직후 중도상환
+  amount: number
+  feePct: number
+  mode: PrepayMode
+}
+
+export interface PrepayResult extends LoanResult {
+  fee: number
+  prepayApplied: number
+}
+
+export function buildScheduleWithPrepayment(
+  principal: number,
+  annualRatePct: number,
+  months: number,
+  method: RepaymentMethod,
+  prepay: PrepayOption,
+): PrepayResult {
+  const base = buildSchedule(principal, annualRatePct, months, method)
+  if (principal <= 0 || months <= 0 || prepay.amount <= 0 || prepay.month < 1 || prepay.month >= months) {
+    return { ...base, fee: 0, prepayApplied: 0 }
+  }
+
+  const r = annualRatePct / 100 / 12
+  const rows: ScheduleRow[] = []
+  let balance = principal
+  let fee = 0
+  let applied = 0
+
+  const annuityPay = (bal: number, n: number) =>
+    r === 0 ? bal / n : (bal * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1)
+
+  if (method === 'annuity') {
+    let payment = annuityPay(principal, months)
+    for (let m = 1; m <= months && balance > 0.005; m++) {
+      const interest = balance * r
+      let prin = Math.min(payment - interest, balance)
+      let pay = prin + interest
+      balance -= prin
+      if (m === prepay.month && balance > 0) {
+        applied = Math.min(prepay.amount, balance)
+        fee = (applied * prepay.feePct) / 100
+        balance -= applied
+        prin += applied
+        pay += applied + fee
+        if (prepay.mode === 'reducePayment' && balance > 0) {
+          payment = annuityPay(balance, months - m)
+        }
+      }
+      rows.push({ month: m, payment: pay, principal: prin, interest, balance })
+    }
+  } else if (method === 'equalPrincipal') {
+    let prinPerMonth = principal / months
+    for (let m = 1; m <= months && balance > 0.005; m++) {
+      const interest = balance * r
+      let prin = m === months ? balance : Math.min(prinPerMonth, balance)
+      let pay = prin + interest
+      balance -= prin
+      if (m === prepay.month && balance > 0) {
+        applied = Math.min(prepay.amount, balance)
+        fee = (applied * prepay.feePct) / 100
+        balance -= applied
+        prin += applied
+        pay += applied + fee
+        if (prepay.mode === 'reducePayment' && balance > 0) {
+          prinPerMonth = balance / (months - m)
+        }
+      }
+      rows.push({ month: m, payment: pay, principal: prin, interest, balance })
+    }
+  } else {
+    // 만기일시: 중도상환 시 잔액이 줄어 이후 월 이자와 만기 상환액이 감소합니다.
+    for (let m = 1; m <= months && balance > 0.005; m++) {
+      const interest = balance * r
+      let prin = 0
+      let pay = interest
+      if (m === prepay.month) {
+        applied = Math.min(prepay.amount, balance)
+        fee = (applied * prepay.feePct) / 100
+        balance -= applied
+        prin += applied
+        pay += applied + fee
+      }
+      if (m === months) {
+        prin += balance
+        pay += balance
+        balance = 0
+      }
+      rows.push({ month: m, payment: pay, principal: prin, interest, balance })
+    }
+  }
+
+  const totalInterest = rows.reduce((s, x) => s + x.interest, 0)
+  const totalPayment = rows.reduce((s, x) => s + x.payment, 0)
+  return {
+    rows,
+    totalPayment,
+    totalInterest,
+    firstPayment: rows[0]?.payment ?? 0,
+    lastPayment: rows[rows.length - 1]?.payment ?? 0,
+    fee,
+    prepayApplied: applied,
+  }
+}
+
+export function fmtMonths(n: number): string {
+  if (n <= 0) return '0개월'
+  const y = Math.floor(n / 12)
+  const m = n % 12
+  const parts: string[] = []
+  if (y > 0) parts.push(`${y}년`)
+  if (m > 0) parts.push(`${m}개월`)
+  return parts.join(' ')
+}
+
 export function fmt(n: number): string {
   return Math.round(n).toLocaleString('ko-KR')
 }

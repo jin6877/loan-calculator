@@ -1,10 +1,15 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   buildSchedule,
+  buildScheduleWithPrepayment,
   fmt,
   fmtKorean,
+  fmtMonths,
   METHOD_DESC,
   METHOD_LABELS,
+  PREPAY_MODE_DESC,
+  PREPAY_MODE_LABELS,
+  type PrepayMode,
   type RepaymentMethod,
 } from './lib/loan'
 
@@ -15,9 +20,24 @@ interface Inputs {
   rate: number
   years: number
   method: RepaymentMethod
+  prepayEnabled: boolean
+  prepayMonth: number
+  prepayAmount: number
+  prepayFeePct: number
+  prepayMode: PrepayMode
 }
 
-const DEFAULTS: Inputs = { principal: 300_000_000, rate: 4.5, years: 30, method: 'annuity' }
+const DEFAULTS: Inputs = {
+  principal: 300_000_000,
+  rate: 4.5,
+  years: 30,
+  method: 'annuity',
+  prepayEnabled: false,
+  prepayMonth: 12,
+  prepayAmount: 50_000_000,
+  prepayFeePct: 1.2,
+  prepayMode: 'shortenTerm',
+}
 
 function loadInputs(): Inputs {
   try {
@@ -29,6 +49,13 @@ function loadInputs(): Inputs {
       rate: Number(p.rate) >= 0 ? Number(p.rate) : DEFAULTS.rate,
       years: Number(p.years) || DEFAULTS.years,
       method: ['annuity', 'equalPrincipal', 'bullet'].includes(p.method) ? p.method : DEFAULTS.method,
+      prepayEnabled: Boolean(p.prepayEnabled),
+      prepayMonth: Number(p.prepayMonth) || DEFAULTS.prepayMonth,
+      prepayAmount: Number(p.prepayAmount) || DEFAULTS.prepayAmount,
+      prepayFeePct: Number(p.prepayFeePct) >= 0 ? Number(p.prepayFeePct) : DEFAULTS.prepayFeePct,
+      prepayMode: ['shortenTerm', 'reducePayment'].includes(p.prepayMode)
+        ? p.prepayMode
+        : DEFAULTS.prepayMode,
     }
   } catch {
     return DEFAULTS
@@ -245,13 +272,44 @@ export default function App() {
   }, [inputs])
 
   const months = Math.round(inputs.years * 12)
-  const result = useMemo(
+  const baseResult = useMemo(
     () => buildSchedule(inputs.principal, inputs.rate, months, inputs.method),
     [inputs.principal, inputs.rate, months, inputs.method],
   )
 
+  const prepayMonth = Math.min(Math.max(Math.round(inputs.prepayMonth), 1), Math.max(months - 1, 1))
+  const prepayResult = useMemo(
+    () =>
+      inputs.prepayEnabled
+        ? buildScheduleWithPrepayment(inputs.principal, inputs.rate, months, inputs.method, {
+            month: prepayMonth,
+            amount: inputs.prepayAmount,
+            feePct: inputs.prepayFeePct,
+            mode: inputs.prepayMode,
+          })
+        : null,
+    [
+      inputs.prepayEnabled,
+      inputs.principal,
+      inputs.rate,
+      months,
+      inputs.method,
+      prepayMonth,
+      inputs.prepayAmount,
+      inputs.prepayFeePct,
+      inputs.prepayMode,
+    ],
+  )
+
+  const result = prepayResult ?? baseResult
   const visibleRows = showAll ? result.rows : result.rows.slice(0, 12)
   const set = (patch: Partial<Inputs>) => setInputs((p) => ({ ...p, ...patch }))
+
+  // 중도상환 전/후 비교
+  const savedInterest = prepayResult ? baseResult.totalInterest - prepayResult.totalInterest : 0
+  const savedMonths = prepayResult ? months - prepayResult.rows.length : 0
+  const paymentBefore = baseResult.rows[prepayMonth]?.payment ?? 0
+  const paymentAfter = prepayResult?.rows[prepayMonth]?.payment ?? 0
 
   const monthlyLabel =
     inputs.method === 'annuity'
@@ -329,6 +387,94 @@ export default function App() {
               </div>
               <p className="mt-2 text-xs leading-relaxed text-zinc-500">{METHOD_DESC[inputs.method]}</p>
             </div>
+
+            {/* 중도상환 시뮬레이션 */}
+            <div className="border-t border-zinc-800 pt-5">
+              <label className="flex cursor-pointer items-center justify-between">
+                <span className="text-sm font-medium text-zinc-300">중도상환 시뮬레이션</span>
+                <button
+                  role="switch"
+                  aria-checked={inputs.prepayEnabled}
+                  onClick={() => set({ prepayEnabled: !inputs.prepayEnabled })}
+                  className={`relative h-6 w-11 rounded-full transition ${
+                    inputs.prepayEnabled ? 'bg-emerald-600' : 'bg-zinc-700'
+                  }`}
+                >
+                  <span
+                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-all ${
+                      inputs.prepayEnabled ? 'left-[22px]' : 'left-0.5'
+                    }`}
+                  />
+                </button>
+              </label>
+
+              {inputs.prepayEnabled && (
+                <div className="mt-4 space-y-5">
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-zinc-300">
+                      중도상환 시점{' '}
+                      <span className="text-xs text-zinc-500">
+                        ({prepayMonth}회차 납입 직후 · 약 {fmtMonths(prepayMonth)} 후)
+                      </span>
+                    </label>
+                    <NumberInput
+                      value={prepayMonth}
+                      onChange={(v) => set({ prepayMonth: v })}
+                      min={1}
+                      max={Math.max(months - 1, 1)}
+                      step={1}
+                      unit="회차"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-zinc-300">중도상환 금액</label>
+                    <MoneyInput
+                      value={inputs.prepayAmount}
+                      onChange={(v) => set({ prepayAmount: v })}
+                      min={1_000_000}
+                      max={inputs.principal}
+                      step={1_000_000}
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-zinc-300">
+                      중도상환 수수료율
+                    </label>
+                    <NumberInput
+                      value={inputs.prepayFeePct}
+                      onChange={(v) => set({ prepayFeePct: v })}
+                      min={0}
+                      max={3}
+                      step={0.1}
+                      unit="%"
+                    />
+                  </div>
+                  <div>
+                    <label className="mb-2 block text-sm font-medium text-zinc-300">상환 후 방식</label>
+                    <div className="grid grid-cols-2 gap-1 rounded-xl bg-zinc-800/80 p-1">
+                      {(Object.keys(PREPAY_MODE_LABELS) as PrepayMode[]).map((m) => (
+                        <button
+                          key={m}
+                          onClick={() => set({ prepayMode: m })}
+                          className={`rounded-lg px-2 py-2 text-sm font-medium transition ${
+                            inputs.prepayMode === m
+                              ? 'bg-emerald-600 text-white shadow'
+                              : 'text-zinc-400 hover:bg-zinc-700/60 hover:text-zinc-200'
+                          }`}
+                        >
+                          {PREPAY_MODE_LABELS[m]}
+                        </button>
+                      ))}
+                    </div>
+                    <p className="mt-2 text-xs leading-relaxed text-zinc-500">
+                      {inputs.method === 'bullet'
+                        ? '만기일시 상환은 중도상환 후 잔액에 대한 월 이자와 만기 상환액이 줄어듭니다.'
+                        : PREPAY_MODE_DESC[inputs.prepayMode]}
+                    </p>
+                  </div>
+                </div>
+              )}
+            </div>
           </section>
 
           {/* 결과 패널 */}
@@ -342,6 +488,38 @@ export default function App() {
               <SummaryCard label="총 이자" value={`${fmt(result.totalInterest)}원`} warn />
               <SummaryCard label="총 상환액" value={`${fmt(result.totalPayment)}원`} />
             </div>
+
+            {prepayResult && (
+              <div className="rounded-2xl border border-emerald-800/50 bg-emerald-500/5 p-5">
+                <h2 className="mb-1 text-sm font-semibold text-emerald-300">중도상환 효과</h2>
+                <p className="mb-4 text-xs text-zinc-500">
+                  {prepayMonth}회차 납입 직후 {fmtKorean(prepayResult.prepayApplied)} 중도상환 ·{' '}
+                  {PREPAY_MODE_LABELS[inputs.prepayMode]}
+                  {prepayResult.fee > 0 && ` · 수수료 ${fmt(prepayResult.fee)}원`}
+                </p>
+                <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                  <SummaryCard label="절감되는 총 이자" value={`${fmt(savedInterest)}원`} accent />
+                  {inputs.prepayMode === 'shortenTerm' && inputs.method !== 'bullet' ? (
+                    <SummaryCard
+                      label="단축되는 기간"
+                      value={savedMonths > 0 ? fmtMonths(savedMonths) : '없음'}
+                      accent
+                    />
+                  ) : (
+                    <SummaryCard
+                      label="이후 월 납입금"
+                      value={`${fmt(paymentBefore)} → ${fmt(paymentAfter)}원`}
+                      accent
+                    />
+                  )}
+                  <SummaryCard label="중도상환 수수료" value={`${fmt(prepayResult.fee)}원`} warn />
+                  <SummaryCard
+                    label="순 절감액 (이자−수수료)"
+                    value={`${fmt(savedInterest - prepayResult.fee)}원`}
+                  />
+                </div>
+              </div>
+            )}
 
             <div className="grid gap-6 sm:grid-cols-2">
               <div className="rounded-2xl border border-zinc-800 bg-zinc-900/60 p-5">
@@ -377,7 +555,12 @@ export default function App() {
                   </thead>
                   <tbody className="divide-y divide-zinc-800/70">
                     {visibleRows.map((r) => (
-                      <tr key={r.month} className="transition hover:bg-zinc-800/40">
+                      <tr
+                        key={r.month}
+                        className={`transition hover:bg-zinc-800/40 ${
+                          prepayResult && r.month === prepayMonth ? 'bg-emerald-500/10' : ''
+                        }`}
+                      >
                         <td className="px-4 py-2.5 text-zinc-500">{r.month}</td>
                         <td className="px-4 py-2.5 text-right font-medium text-zinc-100">
                           {fmt(r.payment)}
