@@ -772,13 +772,12 @@ function CompareRow({
   highlight?: boolean
 }) {
   return (
-    <div className="flex items-baseline justify-between gap-2">
-      <dt className="shrink-0 text-xs text-zinc-400">{label}</dt>
+    <div>
+      <dt className="text-xs text-zinc-400">{label}</dt>
       <dd
-        className={`truncate font-semibold tabular-nums ${
+        className={`mt-0.5 break-words font-semibold tabular-nums ${
           highlight ? 'text-emerald-300' : 'text-zinc-100'
         }`}
-        title={value}
       >
         {value}
       </dd>
@@ -809,10 +808,9 @@ function SummaryCard({
     >
       <p className="text-xs text-zinc-400">{label}</p>
       <p
-        className={`mt-1.5 truncate text-base font-bold tabular-nums sm:text-lg ${
+        className={`mt-1.5 break-words text-base font-bold tabular-nums sm:text-lg ${
           accent ? 'text-emerald-300' : warn ? 'text-amber-300' : 'text-zinc-100'
         }`}
-        title={value}
       >
         {value}
       </p>
