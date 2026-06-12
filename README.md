@@ -2,7 +2,7 @@
 
 대출 원금·연이자율·기간을 입력하면 상환 방식별 월 상환 스케줄과 총 이자를 계산해주는 웹 앱입니다.
 
-**라이브 데모:** https://loan-calculator.vercel.app <!-- 배포 후 실제 URL로 교체 -->
+**라이브 데모:** https://loan-calculator-rho-livid.vercel.app
 
 ## 기능
 
