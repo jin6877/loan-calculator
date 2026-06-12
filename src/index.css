@@ -39,3 +39,48 @@
 .slider::-moz-range-thumb:hover {
   transform: scale(1.2);
 }
+
+/* PDF 저장(인쇄) 전용: A4 한 장 밝은 레이아웃 */
+@media print {
+  @page {
+    size: A4 portrait;
+    margin: 8mm;
+  }
+
+  html,
+  body {
+    background: #ffffff !important;
+  }
+
+  /* 다크 테마 → 밝은 배경으로 전환 (잉크 절약). .print-keep 요소는 원래 색 유지 */
+  *:not(.print-keep) {
+    background-color: transparent !important;
+    background-image: none !important;
+    color: #27272a !important;
+    border-color: #d4d4d8 !important;
+    box-shadow: none !important;
+    text-shadow: none !important;
+    backdrop-filter: none !important;
+  }
+
+  /* 강조 색상은 인쇄에서도 식별 가능하게 유지 */
+  .text-emerald-400,
+  .text-emerald-300,
+  [class*="text-emerald-400"] {
+    color: #047857 !important;
+  }
+  .text-amber-300,
+  [class*="text-amber-400"] {
+    color: #b45309 !important;
+  }
+
+  thead {
+    position: static !important;
+  }
+
+  main {
+    zoom: 0.66;
+    max-width: none !important;
+    padding: 0 !important;
+  }
+}

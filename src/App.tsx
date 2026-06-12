@@ -110,7 +110,7 @@ function MoneyInput({
         step={step}
         value={Math.min(Math.max(value, min), max)}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="slider mt-3 w-full"
+        className="slider mt-3 w-full print:hidden"
       />
       <p className="mt-1 text-right text-xs text-emerald-400/90">{fmtKorean(value)}</p>
     </div>
@@ -159,7 +159,7 @@ function NumberInput({
         step={step}
         value={Math.min(Math.max(value, min), max)}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="slider mt-3 w-full"
+        className="slider mt-3 w-full print:hidden"
       />
     </div>
   )
@@ -189,14 +189,14 @@ function DonutChart({ principal, interest }: { principal: number; interest: numb
       </svg>
       <div className="min-w-0 flex-1 space-y-2 text-sm">
         <div className="flex items-center gap-2">
-          <span className="h-3 w-3 shrink-0 rounded-sm bg-emerald-500" />
+          <span className="print-keep h-3 w-3 shrink-0 rounded-sm bg-emerald-500" />
           <span className="text-zinc-400">원금</span>
           <span className="ml-auto font-semibold tabular-nums text-zinc-100">
             {(100 - interestRatio * 100).toFixed(1)}%
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <span className="h-3 w-3 shrink-0 rounded-sm bg-amber-500" />
+          <span className="print-keep h-3 w-3 shrink-0 rounded-sm bg-amber-500" />
           <span className="text-zinc-400">이자</span>
           <span className="ml-auto font-semibold tabular-nums text-zinc-100">
             {(interestRatio * 100).toFixed(1)}%
@@ -324,7 +324,7 @@ function CompareLineChart({ results }: { results: Record<RepaymentMethod, LoanRe
       <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-1 text-xs">
         {methods.map((m) => (
           <span key={m} className="flex items-center gap-1.5 text-zinc-400">
-            <span className="h-0.5 w-5 rounded-full" style={{ backgroundColor: METHOD_COLORS[m] }} />
+            <span className="print-keep h-0.5 w-5 rounded-full" style={{ backgroundColor: METHOD_COLORS[m] }} />
             {METHOD_LABELS[m]}
           </span>
         ))}
@@ -413,18 +413,33 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100">
-      <div className="pointer-events-none fixed inset-x-0 top-0 h-72 bg-gradient-to-b from-emerald-500/10 to-transparent" />
+      <div className="pointer-events-none fixed inset-x-0 top-0 h-72 bg-gradient-to-b from-emerald-500/10 to-transparent print:hidden" />
       <main className="relative mx-auto max-w-5xl px-4 py-10 sm:px-6">
-        <header className="mb-8">
-          <h1 className="text-3xl font-bold tracking-tight">
-            대출 계산기<span className="text-emerald-400">.</span>
-          </h1>
-          <p className="mt-2 text-sm text-zinc-400">
-            원리금균등 · 원금균등 · 만기일시 상환 방식별 월 상환액과 총 이자를 한눈에 비교하세요.
-          </p>
+        <header className="mb-8 flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold tracking-tight">
+              대출 계산기<span className="text-emerald-400">.</span>
+            </h1>
+            <p className="mt-2 text-sm text-zinc-400">
+              원리금균등 · 원금균등 · 만기일시 상환 방식별 월 상환액과 총 이자를 한눈에 비교하세요.
+            </p>
+          </div>
+          <button
+            onClick={() => window.print()}
+            className="flex shrink-0 items-center gap-2 rounded-xl border border-emerald-700/60 bg-emerald-500/10 px-4 py-2.5 text-sm font-medium text-emerald-300 transition hover:border-emerald-500 hover:bg-emerald-500/20 print:hidden"
+          >
+            <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+              <path
+                fillRule="evenodd"
+                d="M5 2.75A.75.75 0 0 1 5.75 2h8.5a.75.75 0 0 1 .75.75V6h.5A2.5 2.5 0 0 1 18 8.5v4a2.5 2.5 0 0 1-2.5 2.5H15v2.25a.75.75 0 0 1-.75.75h-8.5a.75.75 0 0 1-.75-.75V15h-.5A2.5 2.5 0 0 1 2 12.5v-4A2.5 2.5 0 0 1 4.5 6H5V2.75ZM6.5 6h7V3.5h-7V6Zm0 6.5v4h7v-4h-7Z"
+                clipRule="evenodd"
+              />
+            </svg>
+            PDF 저장
+          </button>
         </header>
 
-        <div className="grid gap-6 lg:grid-cols-[380px_1fr]">
+        <div className="grid gap-6 lg:grid-cols-[380px_1fr] print:grid-cols-[300px_1fr] print:gap-4">
           {/* 입력 패널 */}
           <section className="h-fit space-y-6 rounded-2xl border border-zinc-800 bg-zinc-900/60 p-6 backdrop-blur lg:sticky lg:top-6">
             <div>
@@ -470,7 +485,7 @@ export default function App() {
                     onClick={() => set({ method: m })}
                     className={`rounded-lg px-2 py-2 text-sm font-medium transition ${
                       inputs.method === m
-                        ? 'bg-emerald-600 text-white shadow'
+                        ? 'print-keep bg-emerald-600 text-white shadow'
                         : 'text-zinc-400 hover:bg-zinc-700/60 hover:text-zinc-200'
                     }`}
                   >
@@ -489,7 +504,7 @@ export default function App() {
                   role="switch"
                   aria-checked={inputs.prepayEnabled}
                   onClick={() => set({ prepayEnabled: !inputs.prepayEnabled })}
-                  className={`relative h-6 w-11 rounded-full transition ${
+                  className={`relative h-6 w-11 rounded-full transition print:hidden ${
                     inputs.prepayEnabled ? 'bg-emerald-600' : 'bg-zinc-700'
                   }`}
                 >
@@ -551,7 +566,7 @@ export default function App() {
                           onClick={() => set({ prepayMode: m })}
                           className={`rounded-lg px-2 py-2 text-sm font-medium transition ${
                             inputs.prepayMode === m
-                              ? 'bg-emerald-600 text-white shadow'
+                              ? 'print-keep bg-emerald-600 text-white shadow'
                               : 'text-zinc-400 hover:bg-zinc-700/60 hover:text-zinc-200'
                           }`}
                         >
@@ -573,7 +588,7 @@ export default function App() {
           {/* 결과 패널 */}
           <section className="space-y-6">
             {/* 보기 모드 전환 */}
-            <div className="grid max-w-xs grid-cols-2 gap-1 rounded-xl bg-zinc-800/80 p-1">
+            <div className="grid max-w-xs grid-cols-2 gap-1 rounded-xl bg-zinc-800/80 p-1 print:hidden">
               {([false, true] as const).map((mode) => (
                 <button
                   key={String(mode)}
@@ -613,12 +628,12 @@ export default function App() {
                       >
                         <div className="mb-4 flex items-center gap-2">
                           <span
-                            className="h-2.5 w-2.5 shrink-0 rounded-full"
+                            className="print-keep h-2.5 w-2.5 shrink-0 rounded-full"
                             style={{ backgroundColor: METHOD_COLORS[m] }}
                           />
                           <h3 className="text-sm font-semibold text-zinc-100">{METHOD_LABELS[m]}</h3>
                           {isBest && (
-                            <span className="ml-auto rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white">
+                            <span className="print-keep ml-auto rounded-full bg-emerald-600 px-2 py-0.5 text-[10px] font-semibold text-white">
                               총 이자 최소
                             </span>
                           )}
@@ -712,12 +727,15 @@ export default function App() {
                 <h2 className="text-sm font-semibold text-zinc-300">월별 상환 스케줄</h2>
                 <button
                   onClick={() => setShowAll((s) => !s)}
-                  className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-emerald-500 hover:text-emerald-400"
+                  className="rounded-lg border border-zinc-700 px-3 py-1.5 text-xs font-medium text-zinc-300 transition hover:border-emerald-500 hover:text-emerald-400 print:hidden"
                 >
                   {showAll ? '12회차만 보기' : `전체 ${result.rows.length}회차 보기`}
                 </button>
+                <span className="hidden text-xs text-zinc-500 print:inline">
+                  1~12회차 (전체 {result.rows.length}회차)
+                </span>
               </div>
-              <div className="max-h-[480px] overflow-auto">
+              <div className="max-h-[480px] overflow-auto print:max-h-none print:overflow-visible">
                 <table className="w-full text-sm tabular-nums">
                   <thead className="sticky top-0 z-10 bg-zinc-900 text-xs text-zinc-500">
                     <tr>
@@ -729,12 +747,12 @@ export default function App() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-zinc-800/70">
-                    {visibleRows.map((r) => (
+                    {visibleRows.map((r, i) => (
                       <tr
                         key={r.month}
                         className={`transition hover:bg-zinc-800/40 ${
                           prepayResult && r.month === prepayMonth ? 'bg-emerald-500/10' : ''
-                        }`}
+                        } ${i >= 12 ? 'print:hidden' : ''}`}
                       >
                         <td className="px-4 py-2.5 text-zinc-500">{r.month}</td>
                         <td className="px-4 py-2.5 text-right font-medium text-zinc-100">
